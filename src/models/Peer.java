@@ -90,7 +90,7 @@ public final class Peer {
     }
 
     private void sendStringUsingUDPPacket(String address, String data) throws IOException {
-        peerHandlerSocket = new DatagramSocket();
+//        peerHandlerSocket = new DatagramSocket();
         byte[] socketBuffer = data.getBytes();
         DatagramPacket payload = new DatagramPacket(socketBuffer, socketBuffer.length, InetAddress.getLocalHost(), Integer.parseInt(address.split(":")[1]));
         peerHandlerSocket.send(payload);

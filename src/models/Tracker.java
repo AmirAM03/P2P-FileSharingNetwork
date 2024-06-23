@@ -9,7 +9,7 @@ import java.net.*;
 import java.util.*;
 
 public final class Tracker{
-    private static ArrayList<DatagramPacket> receivingQueue;
+    private synchronized static ArrayList<DatagramPacket> receivingQueue;
     private String address;
     private final List<PeerRequestLog> peerRequestLogs = new ArrayList<>();
     private final Map<FileName, File> fileNameToFile = new HashMap<>();
@@ -54,7 +54,10 @@ public final class Tracker{
             }
             for (DatagramPacket tmp : receivingQueue) {
 //                System.out.println("resolving next received command");
-                processCommand(udpPacketReceivedDataCleaner(tmp));
+                if (!processCommand(udpPacketReceivedDataCleaner(tmp)).equals("Unknown Command")) {
+                    receivingQueue.remove(tmp);
+                    break;
+                }
             }
         }
     }
@@ -72,9 +75,7 @@ public final class Tracker{
         DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length);
         peerHandlerSocket.receive(packet);
 
-        InetAddress address = packet.getAddress();
-        int port = packet.getPort();
-        packet = new DatagramPacket(socketBuffer, socketBuffer.length, address, port);
+//        System.out.println("receeeivd"+new String(packet.getData(), 0, packet.getLength()));
 
 //        System.out.println((int)received.charAt(5));
 
@@ -82,17 +83,18 @@ public final class Tracker{
         return packet;
     }
 
-    public boolean isPeerAlive(String address) throws IOException, InterruptedException {
-        DatagramSocket sender = new DatagramSocket();
+    public boolean isPeerAlive(String address, int responseDelayThreshold) throws IOException, InterruptedException {
+//        DatagramSocket sender = new DatagramSocket();
         socketBuffer = "alive-checking".getBytes();
         DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length, InetAddress.getLocalHost(), Integer.parseInt(address.split(":")[1]));
-        sender.send(packet);
-        sender.disconnect();
-        sender.close();
+        peerHandlerSocket.send(packet);
+//        sender.disconnect();
+//        sender.close();
 
 
-        Thread.sleep(3000);
+        Thread.sleep(responseDelayThreshold);
         for (DatagramPacket tmp:receivingQueue) {
+//            System.out.println(udpPacketReceivedDataCleaner(tmp) +" "+ tmp.getAddress() +" "+ tmp.getPort());
             if (udpPacketReceivedDataCleaner(tmp).equals("yes") && tmp.getPort()==packet.getPort() ) {
                 receivingQueue.remove(tmp);
                 return true;
@@ -157,8 +159,8 @@ public final class Tracker{
             public void run() {
                 while(true){
                     try {
-                        System.out.println("is "+ seederName +" live ? " + isPeerAlive(address));
-                        Thread.sleep(5000);
+                        System.out.println("is "+ seederName +" live ? " + isPeerAlive(address, 3000));
+                        Thread.sleep(10000);
                     } catch (IOException | InterruptedException e) {
                         throw new RuntimeException(e);
                     }
@@ -173,7 +175,7 @@ public final class Tracker{
         return toStringSeedersForFileChunk(fileChunk);
     }
 
-    private void processCommand(String cmd) {
+    private String processCommand(String cmd) {
         String[] separatedCmd = cmd.split(" ");
 
         String response = "";
@@ -213,10 +215,11 @@ public final class Tracker{
                 }
                 break;
             default:
-                System.out.println("Unknown Command : "+Arrays.toString(separatedCmd));
+                response = "Unknown Command";
                 break;
         }
-        System.out.println(response);
+//        System.out.println(response);
+        return response;
         // TODO send response
     }
 
@@ -225,6 +228,9 @@ public final class Tracker{
         while(true){
             String s = cin.next();
             switch(s) {
+                case "processStack":
+                    for (DatagramPacket tmp : receivingQueue) System.out.println(udpPacketReceivedDataCleaner(tmp));
+                    break;
                 case "reportLogs":
                     System.out.println("Here the logs :");
                     for (PeerRequestLog log : getPeerRequestLogs()) {
