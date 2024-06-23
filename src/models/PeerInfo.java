@@ -5,7 +5,7 @@ import java.net.URISyntaxException;
 
 public class PeerInfo {
     private String peerName;
-    private String address;
+    public String address;
 
 
     public PeerInfo(String peerName, String address){

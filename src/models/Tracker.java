@@ -17,7 +17,7 @@ public final class Tracker{
     private DatagramSocket peerHandlerSocket;
     private byte[] socketBuffer;
 
-    public Tracker(String address) throws URISyntaxException {
+    public Tracker(String address) {
         this.address = address;
     }
 
@@ -95,16 +95,24 @@ public final class Tracker{
         InetAddress address = packet.getAddress();
         int port = packet.getPort();
         packet = new DatagramPacket(socketBuffer, socketBuffer.length, address, port);
+
+        peerHandlerSocket.close();
+
         String received = new String(packet.getData(), 0, packet.getLength());
         return received;
     }
 
     public boolean isPeerAlive(String address) throws IOException {
+        peerHandlerSocket = new DatagramSocket();
         socketBuffer = "alive-checking".getBytes();
         DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length, InetAddress.getLocalHost(), Integer.parseInt(address.split(":")[1]));
         peerHandlerSocket.send(packet);
 
-        if (listenOnSocketForCommand().equals("yes")) return true;
+        String response = listenOnSocketForCommand();
+
+        peerHandlerSocket.disconnect();
+
+        if (response.equals("yes")) return true;
 
         return false;
     }

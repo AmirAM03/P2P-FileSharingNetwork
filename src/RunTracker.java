@@ -16,6 +16,6 @@ public class RunTracker {
 //        }
 
         Tracker t = new Tracker("127.0.0.1:12345");
-        System.out.println(t.isPeerAlive());
+        System.out.println(t.isPeerAlive("127.0.0.1:54898"));
     }
 }
