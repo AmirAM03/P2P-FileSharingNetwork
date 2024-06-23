@@ -5,7 +5,7 @@ import java.net.*;
 
 
 public class RunTracker {
-    public static void main(String[] args) throws IOException, URISyntaxException {
+    public static void main(String[] args) throws IOException {
 //        try {
 //            ConfigHandler.resetConfig();
 //            System.out.println(ConfigHandler.queryConfigByKey("RootTrackerAddress"));

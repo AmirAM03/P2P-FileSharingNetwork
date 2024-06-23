@@ -14,9 +14,8 @@ public final class Peer {
     private byte[] socketBuffer;
 
 
-    public Peer(String peerName, String address) throws URISyntaxException, IOException {
+    public Peer(String peerName, String address) throws IOException {
         setPeerInfo(peerName, address);
-
 
         while (true) {
             processCommand(listenOnSocketForCommand());
@@ -83,7 +82,7 @@ public final class Peer {
         return this.peerInfo;
     }
 
-    public Peer setPeerInfo(String peerName, String address) throws URISyntaxException {
+    public Peer setPeerInfo(String peerName, String address) {
         this.peerInfo = new PeerInfo(peerName, address);
         return this;
     }

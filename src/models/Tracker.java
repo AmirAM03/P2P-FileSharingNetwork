@@ -6,66 +6,70 @@ import models.file.FileName;
 
 import java.io.IOException;
 import java.net.*;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.*;
 
 public final class Tracker{
-    private String address;
+    private final String address;
     private final Map<FileName, File> fileNameToFile = new HashMap<>();
     private final Map<FileChunk, List<String>> fileChunkToSeedersName = new HashMap<>();
     private final Map<String, PeerInfo> peerNameToPeerInfo = new HashMap<>();
-<<<<<<< HEAD
-
-=======
-    private final Map<String, DatagramSocket> peerNameToSocket = new HashMap<>();
->>>>>>> 5d6ebb0ba0876627a05d161ca5b82a815a8dbbf6
+    private final List<PeerRequestLog> peerRequestLogs = new ArrayList<>();
     private DatagramSocket peerHandlerSocket;
     private byte[] socketBuffer;
 
-    public Tracker(String address) {
+    public Tracker(String address){
         this.address = address;
     }
 
-    public void start() throws IOException {
-//        System.out.println(listenOnSocketForCommand());
+
+    public FileChunk getFileChunk(FileName fileName, int cid){
+        File file = getFileByFileName(fileName);
+        return file.getChunkByCid(cid);
     }
 
-
-    public void addNewFile(FileName fileName, Integer size) {
+    public Response addNewFile(FileName fileName, Integer size) {
         if(isFileExists(fileName)){
             throw new IllegalArgumentException("file with fileName already exists");
         }
         File newFile = new File(fileName, size);
         addOrUpdateFile(newFile);
         addAllFileChunks(newFile);
+        return new Response();
     }
 
-    public void addASeederToAChunk(String seederName, FileName fileName, int cid) {
+    public Response addASeederToAChunk(String seederName, FileName fileName, int cid) {
         if(!isPeerInfoExist(seederName)){
             throw new IllegalArgumentException("seeder with seederName does not exist");
         }
-        File file = getFileByFileName(fileName);
-        FileChunk fileChunk = file.getChunkByCid(cid);
-        addSeederToFileChunk(fileChunk, seederName);
+        addSeederToFileChunk(getFileChunk(fileName, cid), seederName);
+        return new Response();
     }
 
-    public void addNewSeederName(String seederName, String address) throws URISyntaxException {
+    public Response addNewSeederName(String seederName, String address) {
         if(isPeerInfoExist(seederName)){
             throw new IllegalArgumentException("seeder with seederName already exists");
         }
         PeerInfo seederInfo = new PeerInfo(seederName, address);
         addOrUpdatePeerInfo(seederInfo);
+        return new Response();
     }
 
-    private void processCommand(String cmd) throws Exception {
+    public Response sendSeedersForFileChunk(FileName fileName, int cid) {
+        FileChunk fileChunk = getFileChunk(fileName, cid);
+        return new Response(toStringSeedersForFileChunk(fileChunk));
+    }
+
+    private void processCommand(String cmd) {
         String[] separatedCmd = cmd.split(" ");
+
+        Response response;
 
         switch(separatedCmd[0]){
             case "addSeeder" -> {
                 // addSeeder <seederName> <address>
                 String seederName = separatedCmd[1];
                 String address = separatedCmd[2];
+                response = addNewSeederName(seederName, address);
                 // TODO start keep-alive for socket
             }
             case "share" -> {
@@ -73,21 +77,33 @@ public final class Tracker{
                 String seederName = separatedCmd[1];
                 FileName fileName = new FileName(separatedCmd[2]);
                 int cid = Integer.parseInt(separatedCmd[3]);
-                addASeederToAChunk(seederName, fileName, cid);
+                response = addASeederToAChunk(seederName, fileName, cid);
             }
             case "addNewFile" -> {
                 // addNewFile <fileName> <size>
                 FileName fileName = new FileName(separatedCmd[1]);
                 int size = Integer.parseInt(separatedCmd[2]);
-                addNewFile(fileName, size);
+                response = addNewFile(fileName, size);
+            }
+            case "getChunkSeeders" -> {
+                // getChunkSeeders <fileName> <cid>
+                FileName fileName = new FileName(separatedCmd[1]);
+                int cid = Integer.parseInt(separatedCmd[2]);
+                response = sendSeedersForFileChunk(fileName, cid);
             }
             case "reportLogs" -> {
-
+                for (PeerRequestLog log: getPeerRequestLogs()) {
+                    System.out.println(log);
+                }
             }
             case "reportAvailableFileChunks" -> {
-
+                for(FileChunk fileChunk : fileChunkToSeedersName.keySet()){
+                    System.out.println(toStringSeedersForFileChunk(fileChunk));
+                }
             }
         }
+        sendResponse(response);
+        // TODO send response
     }
 
 
@@ -145,6 +161,12 @@ public final class Tracker{
     }
 
     // getters & setters
+
+    public String getAddress() {
+        return this.address;
+    }
+
+
     public Map<FileName, File> getFileNameToFile() {
         return this.fileNameToFile;
     }
@@ -188,6 +210,15 @@ public final class Tracker{
         return this.fileChunkToSeedersName.get(fileChunk);
     }
 
+    public String toStringSeedersForFileChunk(FileChunk fileChunk){
+        if(!isFileChunkExist(fileChunk)){
+            throw new IllegalArgumentException("fileChunk does not exist");
+        }
+        String ret = fileChunk+":";
+        ret += getSeedersForFileChunk(fileChunk);
+        return ret;
+    }
+
     public Tracker addNewFileChunk(FileChunk fileChunk){
         if(isFileChunkExist(fileChunk)){
             throw new IllegalArgumentException("fileChunk already exists");
@@ -226,5 +257,25 @@ public final class Tracker{
 
     public boolean isPeerInfoExist(String peerName){
         return peerNameToPeerInfo.containsKey(peerName);
+    }
+
+
+    public List<PeerRequestLog> getPeerRequestLogs() {
+        return peerRequestLogs;
+    }
+
+    public Tracker addLog(PeerRequestLog log){
+        peerRequestLogs.add(log);
+        return this;
+    }
+
+    public Tracker addLog(PeerInfo peerInfo, String requestData, boolean isSuccess){
+        peerRequestLogs.add(new PeerRequestLog(peerInfo, requestData, isSuccess));
+        return this;
+    }
+
+
+    public DatagramSocket getPeerHandlerSocket() {
+        return peerHandlerSocket;
     }
 }
