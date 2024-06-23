@@ -14,12 +14,12 @@ public final class Peer {
     private byte[] socketBuffer;
 
 
-    public Peer(String peerName, String address) throws URISyntaxException, IOException {
+    public Peer(String peerName, String address) throws IOException, URISyntaxException {
         setPeerInfo(peerName, address);
 
-//        while (true) {
-//            processCommand(listenOnSocketForCommand());
-//        }
+        while (true) {
+            processCommand(listenOnSocketForCommand());
+        }
     }
 
     private String[] listenOnSocketForCommand() throws IOException {
