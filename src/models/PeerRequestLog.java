@@ -45,8 +45,4 @@ public class PeerRequestLog {
     public void setSuccess(boolean success) {
         isSuccess = success;
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> c5dc479 (added processCommand)

@@ -17,15 +17,9 @@ public final class Peer {
     public Peer(String peerName, String address) throws IOException {
         setPeerInfo(peerName, address);
 
-<<<<<<< HEAD
-//        while (true) {
-//            processCommand(listenOnSocketForCommand());
-//        }
-=======
         while (true) {
             processCommand(listenOnSocketForCommand());
         }
->>>>>>> c5dc479 (added processCommand)
     }
 
     private String[] listenOnSocketForCommand() throws IOException {

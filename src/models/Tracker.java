@@ -76,7 +76,7 @@ public final class Tracker{
     private void processCommand(String cmd) {
         String[] separatedCmd = cmd.split(" ");
 
-        String response;
+        String response = "";
 
         switch(separatedCmd[0]){
             case "addSeeder":
@@ -116,10 +116,14 @@ public final class Tracker{
                 }
             break;
             default:
-                break;
+                throw new IllegalArgumentException("command not found");
         }
         sendResponse(response);
         // TODO send response
+    }
+
+    public void sendResponse(String response){
+        System.out.println(response);
     }
 
     public String toStringSeedersForFileChunk(FileChunk fileChunk){
