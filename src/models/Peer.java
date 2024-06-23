@@ -16,16 +16,26 @@ public final class Peer {
 
     public Peer(String peerName, String address) throws IOException, URISyntaxException {
         setPeerInfo(peerName, address);
+        peerHandlerSocket = new DatagramSocket(Integer.parseInt(this.peerInfo.address.split(":")[1]));
 
         while (true) {
-            processCommand(listenOnSocketForCommand());
+            String[] receivedCmd = listenOnSocketForCommand(); // Wait until get next cmd
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        processCommand(receivedCmd);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }).start();
         }
     }
 
     private String[] listenOnSocketForCommand() throws IOException {
         // Wait until first byte receive
         socketBuffer = new byte[256];
-        peerHandlerSocket = new DatagramSocket(Integer.parseInt(this.peerInfo.address.split(":")[1]));
 
         DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length);
         peerHandlerSocket.receive(packet);
@@ -65,7 +75,6 @@ public final class Peer {
 
     public void sendKeepAliveResponse(String address) throws IOException {
         byte[] socketBuffer = "yes".getBytes();
-        peerHandlerSocket = new DatagramSocket(Integer.parseInt(this.peerInfo.address.split(":")[1]));
         DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length, InetAddress.getLocalHost(), Integer.parseInt(address.split(":")[1]));
         peerHandlerSocket.send(packet);
 

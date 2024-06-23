@@ -17,9 +17,53 @@ public final class Tracker{
     private DatagramSocket peerHandlerSocket;
     private byte[] socketBuffer;
 
-    public Tracker(String address) {
+    public Tracker(String address) throws SocketException {
         this.address = address;
+        peerHandlerSocket = new DatagramSocket(Integer.parseInt(this.address.split(":")[1]));
     }
+
+
+
+
+
+    public String listenOnSocketForCommand() throws IOException {
+        // Wait until first byte receive
+        socketBuffer = new byte[256];
+
+        DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length);
+        peerHandlerSocket.receive(packet);
+
+        InetAddress address = packet.getAddress();
+        int port = packet.getPort();
+        packet = new DatagramPacket(socketBuffer, socketBuffer.length, address, port);
+        String received = new String(packet.getData(), 0, packet.getLength());
+
+
+//        System.out.println((int)received.charAt(5));
+
+        return received.replace( (char) (0) +"", "");
+    }
+
+    public boolean isPeerAlive(String address) throws IOException {
+        DatagramSocket sender = new DatagramSocket();
+        socketBuffer = "alive-checking".getBytes();
+        DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length, InetAddress.getLocalHost(), Integer.parseInt(address.split(":")[1]));
+        sender.send(packet);
+
+        String response = listenOnSocketForCommand();
+
+        sender.disconnect();
+        sender.close();
+
+        System.out.println("hereeee");
+
+        if (response.equals("yes")) return true;
+
+        return false;
+    }
+
+
+
 
 
     public FileChunk getFileChunk(FileName fileName, int cid){
@@ -122,6 +166,27 @@ public final class Tracker{
         // TODO send response
     }
 
+    public void cli(){
+        Scanner cin = new Scanner(System.in);
+        while(true){
+            String s = cin.next();
+            switch(s) {
+                case "reportLogs":
+                    for (PeerRequestLog log : getPeerRequestLogs()) {
+                        System.out.println(log);
+                    }
+                    break;
+                case "reportAvailableFileChunks":
+                    for (FileChunk fileChunk : fileChunkToSeedersName.keySet()) {
+                        System.out.println(toStringSeedersForFileChunk(fileChunk));
+                    }
+                    break;
+                default:
+                    System.out.println("command not found");
+            }
+        }
+    }
+
     public void sendResponse(String response){
         System.out.println(response);
     }
@@ -170,40 +235,6 @@ public final class Tracker{
         }
     }
 
-    public String listenOnSocketForCommand() throws IOException {
-        // Wait until first byte receive
-        socketBuffer = new byte[256];
-        peerHandlerSocket = new DatagramSocket(Integer.parseInt(this.address.split(":")[1]));
-
-        DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length);
-        peerHandlerSocket.receive(packet);
-
-        InetAddress address = packet.getAddress();
-        int port = packet.getPort();
-        packet = new DatagramPacket(socketBuffer, socketBuffer.length, address, port);
-        String received = new String(packet.getData(), 0, packet.getLength());
-
-        peerHandlerSocket.close();
-
-//        System.out.println((int)received.charAt(5));
-
-        return received.replace( (char) (0) +"", "");
-    }
-
-    public boolean isPeerAlive(String address) throws IOException {
-        peerHandlerSocket = new DatagramSocket();
-        socketBuffer = "alive-checking".getBytes();
-        DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length, InetAddress.getLocalHost(), Integer.parseInt(address.split(":")[1]));
-        peerHandlerSocket.send(packet);
-
-        String response = listenOnSocketForCommand();
-
-        peerHandlerSocket.disconnect();
-
-        if (response.equals("yes")) return true;
-
-        return false;
-    }
 
     // getters & setters
     public Map<FileName, File> getFileNameToFile() {
@@ -287,5 +318,4 @@ public final class Tracker{
     public List<PeerRequestLog> getPeerRequestLogs() {
         return peerRequestLogs;
     }
-}
 }
