@@ -17,10 +17,9 @@ public final class Peer {
     public Peer(String peerName, String address) throws URISyntaxException, IOException {
         setPeerInfo(peerName, address);
 
-
-        while (true) {
-            processCommand(listenOnSocketForCommand());
-        }
+//        while (true) {
+//            processCommand(listenOnSocketForCommand());
+//        }
     }
 
     private String[] listenOnSocketForCommand() throws IOException {
@@ -31,9 +30,6 @@ public final class Peer {
         DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length);
         peerHandlerSocket.receive(packet);
 
-        InetAddress address = packet.getAddress();
-        int port = packet.getPort();
-        packet = new DatagramPacket(socketBuffer, socketBuffer.length, address, port);
         String received = new String(packet.getData(), 0, packet.getLength());
 
         String[] cmd = {received, String.valueOf(packet.getAddress())+":"+String.valueOf(packet.getPort())};
@@ -67,10 +63,10 @@ public final class Peer {
     }
 
 
-    private void sendKeepAliveResponse(String address) throws IOException {
+    public void sendKeepAliveResponse(String address) throws IOException {
         byte[] socketBuffer = "yes".getBytes();
         peerHandlerSocket = new DatagramSocket(Integer.parseInt(this.peerInfo.address.split(":")[1]));
-        DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length, InetAddress.getLocalHost(), peerHandlerSocket.getPort());
+        DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length, InetAddress.getLocalHost(), Integer.parseInt(address.split(":")[1]));
         peerHandlerSocket.send(packet);
 
         System.out.println("Sent !");

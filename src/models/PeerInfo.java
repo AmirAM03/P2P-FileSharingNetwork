@@ -1,8 +1,5 @@
 package models;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-
 public class PeerInfo {
     private String peerName;
     public String address;
@@ -10,7 +7,7 @@ public class PeerInfo {
 
     public PeerInfo(String peerName, String address){
         setPeerName(peerName);
-        this.address = address;
+        setAddress(address);
     }
 
 
@@ -20,8 +17,16 @@ public class PeerInfo {
         return this.peerName;
     }
 
-    public PeerInfo setPeerName(String peerName) {
+    private PeerInfo setPeerName(String peerName) {
         this.peerName = peerName;
         return this;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    private void setAddress(String address) {
+        this.address = address;
     }
 }
