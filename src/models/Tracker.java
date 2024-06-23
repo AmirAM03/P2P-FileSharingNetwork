@@ -140,7 +140,7 @@ public final class Tracker{
     }
 
     public String addASeederToAChunk(String seederName, FileName fileName, int cid) {
-        if(!isPeerInfoExist(seederName)){
+        if(!isPeerExistsWithName(seederName)){
             throw new IllegalArgumentException("seeder with seederName does not exist");
         }
         FileChunk fileChunk = getFileChunk(fileName, cid);
@@ -155,7 +155,7 @@ public final class Tracker{
     }
 
     public String addNewSeeder(String seederName, String address) {
-        if(isPeerInfoExist(seederName)){
+        if(isPeerExistsWithName(seederName)){
             throw new IllegalArgumentException("seeder with seederName already exists");
         }
         PeerInfo seederInfo = new PeerInfo(seederName, address);
@@ -165,8 +165,14 @@ public final class Tracker{
             public void run() {
                 while(true){
                     try {
-                        System.out.println("is "+ seederName +" live ? " + isPeerAlive(address, 3000));
                         Thread.sleep(10000);
+                        if (isPeerAlive(address, 3000)) {
+                            System.out.println(seederName + " peer is still live :)");
+                        } else {
+                            System.out.println(seederName + " peer is not responding :_( I'll remove it from network ...");
+                            removePeerFromThisTrackerNetworkByPeerName(seederName);
+                            return;
+                        }
                     } catch (IOException | InterruptedException e) {
                         throw new RuntimeException(e);
                     }
@@ -314,7 +320,7 @@ public final class Tracker{
     }
 
     public Tracker addSeederToFileChunk(FileChunk fileChunk, String seederName) {
-        if(!isPeerInfoExist(seederName)){
+        if(!isPeerExistsWithName(seederName)){
             throw new IllegalArgumentException("seeder with seederName does not exist");
         }
         if(isFileChunkExist(fileChunk)){
@@ -347,19 +353,32 @@ public final class Tracker{
     }
 
     public PeerInfo getPeerInfoByPeerName(String peerName){
-        if(!isPeerInfoExist(peerName)){
+        if(!isPeerExistsWithName(peerName)){
             throw new IllegalArgumentException("peerInfo with peerName does not exist");
         }
         return peerNameToPeerInfo.get(peerName);
     }
 
-    public boolean isPeerInfoExist(String peerName){
+    public boolean isPeerExistsWithName(String peerName){
         return peerNameToPeerInfo.containsKey(peerName);
     }
 
 
     public List<PeerRequestLog> getPeerRequestLogs() {
         return peerRequestLogs;
+    }
+
+
+    private void removePeerFromThisTrackerNetworkByPeerName(String peerName){
+        if (isPeerExistsWithName(peerName)) {
+            PeerInfo inf = peerNameToPeerInfo.get(peerName);
+            peerNameToPeerInfo.remove(peerName);
+            for (Map.Entry<FileChunk, List<String>> entry : fileChunkToSeedersName.entrySet()) {
+                if (entry.getValue().contains(inf.address)) {
+                    entry.getValue().remove(inf.address);
+                }
+            }
+        }
     }
 
 
