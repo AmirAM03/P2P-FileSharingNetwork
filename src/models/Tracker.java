@@ -17,9 +17,10 @@ public final class Tracker{
     private DatagramSocket peerHandlerSocket;
     private byte[] socketBuffer;
 
-    public Tracker(String address) {
+    public Tracker(String address) throws SocketException {
         this.address = address;
 
+        peerHandlerSocket = new DatagramSocket();
         new Thread(this::cli).start();
     }
 
@@ -61,12 +62,24 @@ public final class Tracker{
         return "successfully added seeder["+seederName+"] to chunk["+fileChunk+"]";
     }
 
-    public String addNewSeederName(String seederName, String address) {
+    public String addNewSeeder(String seederName, String address) {
         if(isPeerInfoExist(seederName)){
             throw new IllegalArgumentException("seeder with seederName already exists");
         }
         PeerInfo seederInfo = new PeerInfo(seederName, address);
         addOrUpdatePeerInfo(seederInfo);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while(true){
+                    try {
+                        sendPacketToAliveSocket(address, "alive-checking");
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }).start();
         return "successfully added a new seederName";
     }
 
@@ -85,8 +98,7 @@ public final class Tracker{
                 // addSeeder <seederName> <address>
                 String seederName = separatedCmd[1];
                 String address = separatedCmd[2];
-                response = addNewSeederName(seederName, address);
-                // TODO start keep-alive for socket
+                response = addNewSeeder(seederName, address);
                 break;
             case "share":
                 // share <seederName> <fileName> <cid>
@@ -173,24 +185,10 @@ public final class Tracker{
         return peerHandlerSocket;
     }
 
-    private void sendPacketToAliveSocket(InetAddress ip, int port) throws IOException {
-        byte[] socketBuffer = new byte[256];
-        peerHandlerSocket = new DatagramSocket(port);
-
-        while (true) {
-            DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length);
-            peerHandlerSocket.receive(packet);
-
-            packet = new DatagramPacket(socketBuffer, socketBuffer.length, ip, port);
-            String received = new String(packet.getData(), 0, packet.getLength());
-
-            if (received.equals("Terminate@the@Socket")) {
-                peerHandlerSocket.close();
-                return;
-            }
-
-            peerHandlerSocket.send(packet);
-        }
+    private void sendPacketToAliveSocket(String address ,String data) throws IOException {
+        byte[] socketBuffer = data.getBytes();
+        DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length, InetAddress.getLocalHost(), Integer.parseInt(address.split(":")[1]));
+        peerHandlerSocket.send(packet);
     }
 
     public String listenOnSocketForCommand() throws IOException {

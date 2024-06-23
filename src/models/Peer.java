@@ -17,9 +17,6 @@ public final class Peer {
     public Peer(String peerName, String address) throws IOException, URISyntaxException {
         setPeerInfo(peerName, address);
 
-        while (true) {
-            processCommand(listenOnSocketForCommand());
-        }
     }
 
     private String[] listenOnSocketForCommand() throws IOException {
