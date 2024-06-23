@@ -9,7 +9,7 @@ import java.net.*;
 import java.util.*;
 
 public final class Tracker{
-    private synchronized static ArrayList<DatagramPacket> receivingQueue;
+    private static ArrayList<DatagramPacket> receivingQueue;
     private String address;
     private final List<PeerRequestLog> peerRequestLogs = new ArrayList<>();
     private final Map<FileName, File> fileNameToFile = new HashMap<>();
@@ -38,7 +38,7 @@ public final class Tracker{
             try {
                 DatagramPacket next = listenOnSocketAndStackReceiving();
                 System.out.println("New command received and pushed to processing stack ... " + udpPacketReceivedDataCleaner(next));
-                receivingQueue.add(next);
+                addOrRemovePacketFromProcessStack(next, false);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -52,13 +52,19 @@ public final class Tracker{
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-            for (DatagramPacket tmp : receivingQueue) {
+
+            try {
+                for (DatagramPacket tmp : receivingQueue) {
 //                System.out.println("resolving next received command");
-                if (!processCommand(udpPacketReceivedDataCleaner(tmp)).equals("Unknown Command")) {
-                    receivingQueue.remove(tmp);
-                    break;
+                    if (!processCommand(udpPacketReceivedDataCleaner(tmp)).equals("Unknown Command")) {
+                        addOrRemovePacketFromProcessStack(tmp, true);
+                        break;
+                    }
                 }
+            } catch (ConcurrentModificationException e) {
+                System.out.println("Lock of Death Occurred !");
             }
+
         }
     }
 
@@ -96,7 +102,7 @@ public final class Tracker{
         for (DatagramPacket tmp:receivingQueue) {
 //            System.out.println(udpPacketReceivedDataCleaner(tmp) +" "+ tmp.getAddress() +" "+ tmp.getPort());
             if (udpPacketReceivedDataCleaner(tmp).equals("yes") && tmp.getPort()==packet.getPort() ) {
-                receivingQueue.remove(tmp);
+                addOrRemovePacketFromProcessStack(tmp, true);
                 return true;
             }
         }
@@ -354,5 +360,14 @@ public final class Tracker{
 
     public List<PeerRequestLog> getPeerRequestLogs() {
         return peerRequestLogs;
+    }
+
+
+    private static synchronized void addOrRemovePacketFromProcessStack(DatagramPacket packet, boolean wantToRemove){
+        if (wantToRemove) {
+            receivingQueue.remove(packet);
+        } else {
+            receivingQueue.add(packet);
+        }
     }
 }

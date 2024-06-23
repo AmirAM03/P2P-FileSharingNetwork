@@ -30,7 +30,8 @@ public class RunPeer {
 //        socket.close();
 
 
-        Peer p = new Peer("mammad", "127.0.0.1:6549");
+        Peer p = new Peer("mammad", "127.0.0.1:6546");
+//        Peer p2 = new Peer("ali", "127.0.0.1:6549");
 //        p.sendKeepAliveResponse("127.0.0.1:2345");
     }
 }
