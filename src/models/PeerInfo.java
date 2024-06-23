@@ -5,12 +5,12 @@ import java.net.URISyntaxException;
 
 public class PeerInfo {
     private String peerName;
-    private URI uri;
+    private String address;
 
 
-    public PeerInfo(String peerName, String address) throws URISyntaxException {
+    public PeerInfo(String peerName, String address){
         setPeerName(peerName);
-        setUri(address);
+        this.address = address;
     }
 
 
@@ -22,16 +22,6 @@ public class PeerInfo {
 
     public PeerInfo setPeerName(String peerName) {
         this.peerName = peerName;
-        return this;
-    }
-
-
-    public URI getUri() {
-        return this.uri;
-    }
-
-    public PeerInfo setUri(String address) throws URISyntaxException {
-        this.uri = new URI("http://" + address + "/");
         return this;
     }
 }

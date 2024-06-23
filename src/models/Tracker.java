@@ -4,21 +4,26 @@ import models.file.File;
 import models.file.FileChunk;
 import models.file.FileName;
 
-import java.net.DatagramSocket;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.io.IOException;
+import java.net.*;
 import java.util.*;
 
 public final class Tracker{
-    private URI uri;
+    private String address;
     private final Map<FileName, File> fileNameToFile = new HashMap<>();
     private final Map<FileChunk, List<String>> fileChunkToSeedersName = new HashMap<>();
     private final Map<String, PeerInfo> peerNameToPeerInfo = new HashMap<>();
     private final Map<String, DatagramSocket> peerNameToSocket = new HashMap<>();
 
 
+    private DatagramSocket peerHandlerSocket;
+
     public Tracker(String address) throws URISyntaxException {
-        setUri(address);
+        this.address = address;
+    }
+
+    public void start() throws IOException {
+        System.out.println(listenOnSocketForCommand());
     }
 
     private void processCommand(String cmd) throws Exception {
@@ -60,18 +65,46 @@ public final class Tracker{
     }
 
 
+    private void sendPacketToAliveSocket(InetAddress ip, int port) throws IOException {
+        byte[] socketBuffer = new byte[256];
+        peerHandlerSocket = new DatagramSocket(port);
+
+        while (true) {
+            DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length);
+            peerHandlerSocket.receive(packet);
+
+            packet = new DatagramPacket(socketBuffer, socketBuffer.length, ip, port);
+            String received = new String(packet.getData(), 0, packet.getLength());
+
+            if (received.equals("Terminate@the@Socket")) {
+                peerHandlerSocket.close();
+                return;
+            }
+
+            peerHandlerSocket.send(packet);
+        }
+    }
+
+    private String listenOnSocketForCommand() throws IOException {
+        // Wait until first byte receive
+        byte[] buf = new byte[256];
+        peerHandlerSocket = new DatagramSocket(Integer.parseInt(this.address.split(":")[1]));
+
+        DatagramPacket packet = new DatagramPacket(buf, buf.length);
+        peerHandlerSocket.receive(packet);
+
+        InetAddress address = packet.getAddress();
+        int port = packet.getPort();
+        packet = new DatagramPacket(buf, buf.length, address, port);
+        String received = new String(packet.getData(), 0, packet.getLength());
+        return received;
+    }
+
+    public void isPeerAlive(String peerName){
+
+    }
+
     // getters & setters
-
-    public URI getUri() {
-        return this.uri;
-    }
-
-    private Tracker setUri(String address) throws URISyntaxException {
-        this.uri = new URI(address);
-        return this;
-    }
-
-
     public Map<FileName, File> getFileNameToFile() {
         return this.fileNameToFile;
     }
