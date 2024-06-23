@@ -2,6 +2,8 @@ package models;
 
 import models.file.FileChunk;
 
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -10,6 +12,8 @@ import java.util.Map;
 public final class Peer {
     private PeerInfo peerInfo;
     private Map<FileChunk, String> fileChunkToPath = new HashMap<>();
+    private DatagramSocket peerHandlerSocket;
+    private byte[] socketBuffer;
 
 
     public Peer(String peerName, String address) throws URISyntaxException {
@@ -29,8 +33,39 @@ public final class Peer {
         // add a listener to download that file chunk
     }
 
+    private void processCommand(String entryCommand){
+        // Separator char is %
+        if (entryCommand.split("%")[0].equals("alive-checking")) {
+
+        } else {
+
+        }
+    }
+
     public void cli(){
         // CLI
+
+    }
+
+
+    private void sendKeepAliveResponse(String address) throws SocketException {
+        byte[] socketBuffer = new byte[256];
+        peerHandlerSocket = new DatagramSocket(Integer.parseInt(address.split(":")[1]));
+
+        while (true) {
+            DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length);
+            peerHandlerSocket.receive(packet);
+
+            packet = new DatagramPacket(socketBuffer, socketBuffer.length, ip, port);
+            String received = new String(packet.getData(), 0, packet.getLength());
+
+            if (received.equals("Terminate@the@Socket")) {
+                peerHandlerSocket.close();
+                return;
+            }
+
+            peerHandlerSocket.send(packet);
+        }
     }
 
 

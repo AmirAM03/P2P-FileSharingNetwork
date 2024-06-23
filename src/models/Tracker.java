@@ -14,16 +14,15 @@ public final class Tracker{
     private final Map<FileChunk, List<String>> fileChunkToSeedersName = new HashMap<>();
     private final Map<String, PeerInfo> peerNameToPeerInfo = new HashMap<>();
     private final Map<String, DatagramSocket> peerNameToSocket = new HashMap<>();
-
-
     private DatagramSocket peerHandlerSocket;
+    private byte[] socketBuffer;
 
     public Tracker(String address) throws URISyntaxException {
         this.address = address;
     }
 
     public void start() throws IOException {
-        System.out.println(listenOnSocketForCommand());
+//        System.out.println(listenOnSocketForCommand());
     }
 
     private void processCommand(String cmd) throws Exception {
@@ -87,21 +86,27 @@ public final class Tracker{
 
     private String listenOnSocketForCommand() throws IOException {
         // Wait until first byte receive
-        byte[] buf = new byte[256];
+        socketBuffer = new byte[256];
         peerHandlerSocket = new DatagramSocket(Integer.parseInt(this.address.split(":")[1]));
 
-        DatagramPacket packet = new DatagramPacket(buf, buf.length);
+        DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length);
         peerHandlerSocket.receive(packet);
 
         InetAddress address = packet.getAddress();
         int port = packet.getPort();
-        packet = new DatagramPacket(buf, buf.length, address, port);
+        packet = new DatagramPacket(socketBuffer, socketBuffer.length, address, port);
         String received = new String(packet.getData(), 0, packet.getLength());
         return received;
     }
 
-    public void isPeerAlive(String peerName){
+    public boolean isPeerAlive(String address) throws IOException {
+        socketBuffer = "alive-checking".getBytes();
+        DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length, InetAddress.getLocalHost(), Integer.parseInt(address.split(":")[1]));
+        peerHandlerSocket.send(packet);
 
+        if (listenOnSocketForCommand().equals("yes")) return true;
+
+        return false;
     }
 
     // getters & setters
