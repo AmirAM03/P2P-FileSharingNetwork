@@ -14,7 +14,8 @@ public final class Peer {
     private Map<FileChunk, String> fileChunkToPath = new HashMap<>();
     private DatagramSocket peerHandlerSocket;
     private byte[] socketBuffer;
-    private ServerSocket socket;
+    private PrintWriter outPipeline;
+    private BufferedReader inPipeline;
 
 
 
@@ -23,7 +24,6 @@ public final class Peer {
         String[] parts = address.split(":");
         String peerAddress = parts[0];
         int port = Integer.parseInt(this.peerInfo.address.split(":")[1]);
-        socket = new ServerSocket(port + 1);
         peerHandlerSocket = new DatagramSocket(port);
 
 
@@ -59,6 +59,26 @@ public final class Peer {
 
 
         System.out.println(peerName + " peer successfully created on port " + port + " as heart-bit status checking (UDP) and " + (port+1) + " as file sharing (TCP)");
+
+
+
+
+        // TCP Setup for file transfer between peers
+        ServerSocket serverTCPSocket = new ServerSocket(port+1);
+        Socket clientSocket = serverTCPSocket.accept();
+        outPipeline = new PrintWriter(clientSocket.getOutputStream(), true);
+        inPipeline = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        // TCP command handler
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    if (inPipeline.ready()) {
+
+                    }
+                }
+            }
+        }).start();
     }
 //    public void sendChunk(FileName filePath, int chunkId, String peerAddress, int peerPort) {
 //        DataOutputStream out = null;
@@ -105,51 +125,51 @@ public final class Peer {
 //            }
 //        }
 //    }
-//
-//    public void receiveChunk(int tcpPort) {
-//        ServerSocket serverSocket = null;
-//
-//        try {
-//            serverSocket = new ServerSocket(tcpPort);
-//            System.out.println("Server started, waiting for connections...");
-//
-//            while (true) {
-//                try (Socket socket = serverSocket.accept();
-//                     DataInputStream in = new DataInputStream(socket.getInputStream());
-//                     DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
-//
-//                    // receive
-//                    int chunkSize = in.readInt();
-//                    byte[] buffer = new byte[chunkSize];
-//
-//                    // receive
-//                    in.readFully(buffer, 0, chunkSize);
-//
-//                    // write
-//                    try (FileOutputStream fos = new FileOutputStream("received_chunk_" + System.currentTimeMillis())) {
-//                        fos.write(buffer);
-//                    }
-//
-//                    // acknowledgment
-//                    out.writeInt(1);
-//
-//                    System.out.println("Chunk received and saved.");
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        } finally {
-//            // close
-//            try {
-//                if (serverSocket != null) serverSocket.close();
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//    }
+
+    public void receiveChunk(int tcpPort) {
+        ServerSocket serverSocket = null;
+
+        try {
+            serverSocket = new ServerSocket(tcpPort);
+            System.out.println("Server started, waiting for connections...");
+
+            while (true) {
+                try (Socket socket = serverSocket.accept();
+                     DataInputStream in = new DataInputStream(socket.getInputStream());
+                     DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
+
+                    // receive
+                    int chunkSize = in.readInt();
+                    byte[] buffer = new byte[chunkSize];
+
+                    // receive
+                    in.readFully(buffer, 0, chunkSize);
+
+                    // write
+                    try (FileOutputStream fos = new FileOutputStream("received_chunk_" + System.currentTimeMillis())) {
+                        fos.write(buffer);
+                    }
+
+                    // acknowledgment
+                    out.writeInt(1);
+
+                    System.out.println("Chunk received and saved.");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            // close
+            try {
+                if (serverSocket != null) serverSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
     private String[] listenOnUDPSocketForCommand() throws IOException {
         // Wait until first byte receive
@@ -172,7 +192,7 @@ public final class Peer {
         // index all chunks in tracker
 
         File relatedFile = new File(filePath);
-        for (int offset = 1 ; offset <= Math.floor(relatedFile.length()/(2*10^6)) ; offset++) {
+        for (int offset = 0 ; offset*(2*(1e6)) <= Math.ceil(relatedFile.length()) ; offset++) {
             // share <file name> <seeder address> <cid>
             String cmdPayload = "share " + relatedFile.getName() + " " + this.peerInfo.address + " " + offset;
             sendStringUsingUDPPacket(trackerAddress, cmdPayload);
