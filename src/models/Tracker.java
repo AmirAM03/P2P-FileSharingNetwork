@@ -9,6 +9,7 @@ import java.net.*;
 import java.util.*;
 
 public final class Tracker{
+    private static ArrayList<DatagramPacket> receivingQueue;
     private String address;
     private final List<PeerRequestLog> peerRequestLogs = new ArrayList<>();
     private final Map<FileName, File> fileNameToFile = new HashMap<>();
@@ -17,17 +18,55 @@ public final class Tracker{
     private DatagramSocket peerHandlerSocket;
     private byte[] socketBuffer;
 
-    public Tracker(String address) throws SocketException {
+    public Tracker(String address) throws IOException {
         this.address = address;
-        peerHandlerSocket = new DatagramSocket(Integer.parseInt(this.address.split(":")[1]));
+
+        new Thread(this::cli).start();
+
+        peerHandlerSocket = new DatagramSocket(Integer.parseInt(address.split(":")[1]));
+        receivingQueue = new ArrayList<>();
+        new Thread(this::runUDPListenerStacker).start();
+
+        // Start receiving queue resolver
+        new Thread(this::runCommandStackResolver).start();
     }
 
 
 
+    private void runUDPListenerStacker() {
+        while (true) {
+            try {
+                DatagramPacket next = listenOnSocketAndStackReceiving();
+                System.out.println("New command received and pushed to processing stack ... " + udpPacketReceivedDataCleaner(next));
+                receivingQueue.add(next);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private void runCommandStackResolver(){
+        while (true) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            for (DatagramPacket tmp : receivingQueue) {
+//                System.out.println("resolving next received command");
+                processCommand(udpPacketReceivedDataCleaner(tmp));
+            }
+        }
+    }
 
 
-    public String listenOnSocketForCommand() throws IOException {
+    private static String udpPacketReceivedDataCleaner(DatagramPacket packet){
+        return new String(packet.getData(), 0, packet.getLength()).replace( (char) (0) +"", "");
+    }
+
+    private DatagramPacket listenOnSocketAndStackReceiving() throws IOException {
         // Wait until first byte receive
+        System.out.println("Waiting to receive another command ... " + Thread.currentThread().getName());
         socketBuffer = new byte[256];
 
         DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length);
@@ -36,33 +75,31 @@ public final class Tracker{
         InetAddress address = packet.getAddress();
         int port = packet.getPort();
         packet = new DatagramPacket(socketBuffer, socketBuffer.length, address, port);
-        String received = new String(packet.getData(), 0, packet.getLength());
-
 
 //        System.out.println((int)received.charAt(5));
 
-        return received.replace( (char) (0) +"", "");
+//        return received.replace( (char) (0) +"", "");
+        return packet;
     }
 
-    public boolean isPeerAlive(String address) throws IOException {
+    public boolean isPeerAlive(String address) throws IOException, InterruptedException {
         DatagramSocket sender = new DatagramSocket();
         socketBuffer = "alive-checking".getBytes();
         DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length, InetAddress.getLocalHost(), Integer.parseInt(address.split(":")[1]));
         sender.send(packet);
-
-        String response = listenOnSocketForCommand();
-
         sender.disconnect();
         sender.close();
 
-        System.out.println("hereeee");
 
-        if (response.equals("yes")) return true;
-
+        Thread.sleep(3000);
+        for (DatagramPacket tmp:receivingQueue) {
+            if (udpPacketReceivedDataCleaner(tmp).equals("yes") && tmp.getPort()==packet.getPort() ) {
+                receivingQueue.remove(tmp);
+                return true;
+            }
+        }
         return false;
     }
-
-
 
 
 
@@ -103,12 +140,31 @@ public final class Tracker{
         return "successfully added seeder["+seederName+"] to chunk["+fileChunk+"]";
     }
 
-    public String addNewSeederName(String seederName, String address) {
+    private void sendPacketToAliveSocket(String address ,String data) throws IOException {
+        byte[] socketBuffer = data.getBytes();
+        DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length, InetAddress.getLocalHost(), Integer.parseInt(address.split(":")[1]));
+        peerHandlerSocket.send(packet);
+    }
+
+    public String addNewSeeder(String seederName, String address) {
         if(isPeerInfoExist(seederName)){
             throw new IllegalArgumentException("seeder with seederName already exists");
         }
         PeerInfo seederInfo = new PeerInfo(seederName, address);
         addOrUpdatePeerInfo(seederInfo);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while(true){
+                    try {
+                        System.out.println("is "+ seederName +" live ? " + isPeerAlive(address));
+                        Thread.sleep(5000);
+                    } catch (IOException | InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }).start();
         return "successfully added a new seederName";
     }
 
@@ -125,17 +181,14 @@ public final class Tracker{
         switch(separatedCmd[0]){
             case "addSeeder":
                 // addSeeder <seederName> <address>
-                String seederName = separatedCmd[1];
-                String address = separatedCmd[2];
-                response = addNewSeederName(seederName, address);
-                // TODO start keep-alive for socket
+                String seederAddress = separatedCmd[2];
+                response = addNewSeeder(separatedCmd[1], seederAddress);
                 break;
             case "share":
-                // share <seederName> <fileName> <cid>
-                String seederName2 = separatedCmd[1];
-                FileName fileName = new FileName(separatedCmd[2]);
+                // share <file name> <seeder address> <cid>
+                FileName fileName = new FileName(separatedCmd[1]);
                 int cid = Integer.parseInt(separatedCmd[3]);
-                response = addASeederToAChunk(seederName2, fileName, cid);
+                response = addASeederToAChunk(separatedCmd[1], fileName, cid);
                 break;
             case "addNewFile":
                 // addNewFile <fileName> <size>
@@ -160,9 +213,10 @@ public final class Tracker{
                 }
                 break;
             default:
-                throw new IllegalArgumentException("command not found");
+                System.out.println("Unknown Command : "+Arrays.toString(separatedCmd));
+                break;
         }
-        sendResponse(response);
+        System.out.println(response);
         // TODO send response
     }
 
@@ -172,6 +226,7 @@ public final class Tracker{
             String s = cin.next();
             switch(s) {
                 case "reportLogs":
+                    System.out.println("Here the logs :");
                     for (PeerRequestLog log : getPeerRequestLogs()) {
                         System.out.println(log);
                     }
@@ -185,10 +240,6 @@ public final class Tracker{
                     System.out.println("command not found");
             }
         }
-    }
-
-    public void sendResponse(String response){
-        System.out.println(response);
     }
 
     public String toStringSeedersForFileChunk(FileChunk fileChunk){
@@ -213,26 +264,6 @@ public final class Tracker{
 
     public DatagramSocket getPeerHandlerSocket() {
         return peerHandlerSocket;
-    }
-
-    private void sendPacketToAliveSocket(InetAddress ip, int port) throws IOException {
-        byte[] socketBuffer = new byte[256];
-        peerHandlerSocket = new DatagramSocket(port);
-
-        while (true) {
-            DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length);
-            peerHandlerSocket.receive(packet);
-
-            packet = new DatagramPacket(socketBuffer, socketBuffer.length, ip, port);
-            String received = new String(packet.getData(), 0, packet.getLength());
-
-            if (received.equals("Terminate@the@Socket")) {
-                peerHandlerSocket.close();
-                return;
-            }
-
-            peerHandlerSocket.send(packet);
-        }
     }
 
 
