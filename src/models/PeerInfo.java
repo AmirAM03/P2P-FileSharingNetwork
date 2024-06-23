@@ -29,4 +29,8 @@ public class PeerInfo {
     private void setAddress(String address) {
         this.address = address;
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> c5dc479 (added processCommand)
