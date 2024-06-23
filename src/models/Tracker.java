@@ -19,6 +19,8 @@ public final class Tracker{
 
     public Tracker(String address) {
         this.address = address;
+
+        new Thread(this::cli).start();
     }
 
 
@@ -120,6 +122,27 @@ public final class Tracker{
         }
         sendResponse(response);
         // TODO send response
+    }
+
+    public void cli(){
+        Scanner cin = new Scanner(System.in);
+        while(true){
+            String s = cin.next();
+            switch(s) {
+                case "reportLogs":
+                    for (PeerRequestLog log : getPeerRequestLogs()) {
+                        System.out.println(log);
+                    }
+                    break;
+                case "reportAvailableFileChunks":
+                    for (FileChunk fileChunk : fileChunkToSeedersName.keySet()) {
+                        System.out.println(toStringSeedersForFileChunk(fileChunk));
+                    }
+                    break;
+                default:
+                    System.out.println("command not found");
+            }
+        }
     }
 
     public void sendResponse(String response){
@@ -287,5 +310,4 @@ public final class Tracker{
     public List<PeerRequestLog> getPeerRequestLogs() {
         return peerRequestLogs;
     }
-}
 }
