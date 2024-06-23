@@ -10,6 +10,7 @@ import java.util.*;
 
 public final class Tracker{
     private String address;
+    private final List<PeerRequestLog> peerRequestLogs = new ArrayList<>();
     private final Map<FileName, File> fileNameToFile = new HashMap<>();
     private final Map<FileChunk, List<String>> fileChunkToSeedersName = new HashMap<>();
     private final Map<String, PeerInfo> peerNameToPeerInfo = new HashMap<>();
@@ -69,47 +70,72 @@ public final class Tracker{
         Response response;
 
         switch(separatedCmd[0]){
-            case "addSeeder" -> {
+            case "addSeeder":
                 // addSeeder <seederName> <address>
                 String seederName = separatedCmd[1];
                 String address = separatedCmd[2];
                 response = addNewSeederName(seederName, address);
                 // TODO start keep-alive for socket
-            }
-            case "share" -> {
+            break;
+            case "share":
                 // share <seederName> <fileName> <cid>
-                String seederName = separatedCmd[1];
+                String seederName2 = separatedCmd[1];
                 FileName fileName = new FileName(separatedCmd[2]);
                 int cid = Integer.parseInt(separatedCmd[3]);
-                response = addASeederToAChunk(seederName, fileName, cid);
-            }
-            case "addNewFile" -> {
+                response = addASeederToAChunk(seederName2, fileName, cid);
+            break;
+            case "addNewFile":
                 // addNewFile <fileName> <size>
-                FileName fileName = new FileName(separatedCmd[1]);
+                FileName fileName2 = new FileName(separatedCmd[1]);
                 int size = Integer.parseInt(separatedCmd[2]);
-                response = addNewFile(fileName, size);
-            }
-            case "getChunkSeeders" -> {
+                response = addNewFile(fileName2, size);
+            break;
+            case "getChunkSeeders":
                 // getChunkSeeders <fileName> <cid>
-                FileName fileName = new FileName(separatedCmd[1]);
-                int cid = Integer.parseInt(separatedCmd[2]);
-                response = sendSeedersForFileChunk(fileName, cid);
-            }
-            case "reportLogs" -> {
+                FileName fileName3 = new FileName(separatedCmd[1]);
+                int cid2 = Integer.parseInt(separatedCmd[2]);
+                response = sendSeedersForFileChunk(fileName3, cid2);
+            break;
+            case "reportLogs":
                 for (PeerRequestLog log: getPeerRequestLogs()) {
                     System.out.println(log);
                 }
-            }
-            case "reportAvailableFileChunks" -> {
+            break;
+            case "reportAvailableFileChunks" :
                 for(FileChunk fileChunk : fileChunkToSeedersName.keySet()){
                     System.out.println(toStringSeedersForFileChunk(fileChunk));
                 }
-            }
+            break;
+            default:
+                break;
         }
         sendResponse(response);
         // TODO send response
     }
 
+    public String toStringSeedersForFileChunk(FileChunk fileChunk){
+        if(!isFileChunkExist(fileChunk)){
+            throw new IllegalArgumentException("fileChunk does not exist");
+        }
+        String ret = fileChunk+":";
+        ret += getSeedersForFileChunk(fileChunk);
+        return ret;
+    }
+
+    public Tracker addLog(PeerRequestLog log){
+        peerRequestLogs.add(log);
+        return this;
+    }
+
+    public Tracker addLog(PeerInfo peerInfo, String requestData, boolean isSuccess){
+        peerRequestLogs.add(new PeerRequestLog(peerInfo, requestData, isSuccess));
+        return this;
+    }
+
+
+    public DatagramSocket getPeerHandlerSocket() {
+        return peerHandlerSocket;
+    }
 
     private void sendPacketToAliveSocket(InetAddress ip, int port) throws IOException {
         byte[] socketBuffer = new byte[256];
@@ -263,4 +289,8 @@ public final class Tracker{
         return peerNameToPeerInfo.containsKey(peerName);
     }
 
+
+    public List<PeerRequestLog> getPeerRequestLogs() {
+        return peerRequestLogs;
+    }
 }
