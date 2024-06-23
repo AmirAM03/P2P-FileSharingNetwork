@@ -15,7 +15,9 @@ public class RunTracker {
 //            throw new RuntimeException(e);
 //        }
 
-        Tracker t = new Tracker("127.0.0.1:12345");
-        System.out.println(t.isPeerAlive("127.0.0.1:54898"));
+        Tracker t = new Tracker("127.0.0.1:2345");
+//        System.out.println(t.isPeerAlive("127.0.0.1:54898"));
+        System.out.println(t.listenOnSocketForCommand());
     }
+
 }

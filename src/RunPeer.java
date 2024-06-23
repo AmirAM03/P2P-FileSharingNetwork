@@ -31,5 +31,6 @@ public class RunPeer {
 
 
         Peer p = new Peer("mammad", "127.0.0.1:6548");
+        p.sendKeepAliveResponse("127.0.0.1:2345");
     }
 }
