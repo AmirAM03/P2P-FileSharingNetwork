@@ -15,15 +15,20 @@ public final class Tracker{
     private final Map<FileName, File> fileNameToFile = new HashMap<>();
     private final Map<FileChunk, List<String>> fileChunkToSeedersName = new HashMap<>();
     private final Map<String, PeerInfo> peerNameToPeerInfo = new HashMap<>();
+<<<<<<< HEAD
 
+=======
+    private final Map<String, DatagramSocket> peerNameToSocket = new HashMap<>();
+>>>>>>> 5d6ebb0ba0876627a05d161ca5b82a815a8dbbf6
     private DatagramSocket peerHandlerSocket;
+    private byte[] socketBuffer;
 
-    public Tracker(String address) throws URISyntaxException {
+    public Tracker(String address) {
         this.address = address;
     }
 
     public void start() throws IOException {
-        System.out.println(listenOnSocketForCommand());
+//        System.out.println(listenOnSocketForCommand());
     }
 
 
@@ -108,21 +113,35 @@ public final class Tracker{
 
     private String listenOnSocketForCommand() throws IOException {
         // Wait until first byte receive
-        byte[] buf = new byte[256];
+        socketBuffer = new byte[256];
         peerHandlerSocket = new DatagramSocket(Integer.parseInt(this.address.split(":")[1]));
 
-        DatagramPacket packet = new DatagramPacket(buf, buf.length);
+        DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length);
         peerHandlerSocket.receive(packet);
 
         InetAddress address = packet.getAddress();
         int port = packet.getPort();
-        packet = new DatagramPacket(buf, buf.length, address, port);
+        packet = new DatagramPacket(socketBuffer, socketBuffer.length, address, port);
+
+        peerHandlerSocket.close();
+
         String received = new String(packet.getData(), 0, packet.getLength());
         return received;
     }
 
-    public void isPeerAlive(String peerName){
+    public boolean isPeerAlive(String address) throws IOException {
+        peerHandlerSocket = new DatagramSocket();
+        socketBuffer = "alive-checking".getBytes();
+        DatagramPacket packet = new DatagramPacket(socketBuffer, socketBuffer.length, InetAddress.getLocalHost(), Integer.parseInt(address.split(":")[1]));
+        peerHandlerSocket.send(packet);
 
+        String response = listenOnSocketForCommand();
+
+        peerHandlerSocket.disconnect();
+
+        if (response.equals("yes")) return true;
+
+        return false;
     }
 
     // getters & setters
