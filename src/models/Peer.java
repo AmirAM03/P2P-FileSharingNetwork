@@ -73,12 +73,33 @@ public final class Peer {
             @Override
             public void run() {
                 while (true) {
-                    if (inPipeline.ready()) {
-
+                    try {
+                        if (inPipeline.ready()) {
+                            String message = inPipeline.readLine();
+                            if (message.startsWith("get"))
+                                sendChuck(message, outPipeline);
+                        }
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
                     }
                 }
             }
         }).start();
+    }
+    private void sendChuck(String message, PrintWriter outPipeline) throws IOException {
+        String[] parts = message.split(" ");
+        String fileName = parts[1];
+        int chunkId = Integer.parseInt(parts[3]);
+        String[] addressParts = parts[2].split(":");
+        String peerAddress = addressParts[0];
+        int peerPort = Integer.parseInt(addressParts[1]);
+        byte[] buffer = new byte[2 * 1024 * 1024]; // 2MB
+        RandomAccessFile raf = new RandomAccessFile(fileName, "r");
+        raf.seek(chunkId * buffer.length);
+        int bytesRead = raf.read(buffer, 0, buffer.length);
+
+        // sending
+        outPipeline.write(bytesRead);
     }
 //    public void sendChunk(FileName filePath, int chunkId, String peerAddress, int peerPort) {
 //        DataOutputStream out = null;
@@ -193,8 +214,8 @@ public final class Peer {
 
         File relatedFile = new File(filePath);
         for (int offset = 0 ; offset*(2*(1e6)) <= Math.ceil(relatedFile.length()) ; offset++) {
-            // share <file name> <seeder address> <cid>
-            String cmdPayload = "share " + relatedFile.getName() + " " + this.peerInfo.address + " " + offset;
+            // share <file name> <seeder name> <cid>
+            String cmdPayload = "share " + relatedFile.getName() + " " + this.peerInfo.getPeerName() + " " + offset;
             sendStringUsingUDPPacket(trackerAddress, cmdPayload);
         }
 
@@ -239,7 +260,7 @@ public final class Peer {
                     }
                     break;
                 case "share":
-                    // share <file name> <target tracker address> <seeder address>
+                    // share <file name> <target tracker address>
                     try {
                         share(separatedCmd[1], separatedCmd[2]);
                     } catch (IOException e) {

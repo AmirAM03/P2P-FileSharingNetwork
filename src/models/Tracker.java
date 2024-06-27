@@ -199,10 +199,10 @@ public final class Tracker{
                 response = addNewSeeder(separatedCmd[1], seederAddress);
                 break;
             case "share":
-                // share <file name> <seeder address> <cid>
+                // share <file name> <seeder name> <cid>
                 FileName fileName = new FileName(separatedCmd[1]);
                 int cid = Integer.parseInt(separatedCmd[3]);
-                response = addASeederToAChunk(separatedCmd[1], fileName, cid);
+                response = addASeederToAChunk(separatedCmd[2], fileName, cid);
                 break;
             case "addNewFile":
                 // addNewFile <fileName> <size>
